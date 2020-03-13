@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Avatar Generator</title>
+  <style type="text/css">
+    body {
+      padding: 0;
+      margin: 0;
+    }
+
+    #app {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    #control {
+      padding: 1rem;
+      display: flex;
+      justify-content: center;
+    }
+
+    #control button {
+      background-color: steelblue;
+      border: none;
+      padding: 0.5rem 1rem;
+      color: white;
+      font-size: 1.1rem;
+      margin: 0 0.5rem;
+    }
+
+    #control button:not(:disabled):hover {
+      cursor: pointer;
+    }
+
+    #control button:disabled {
+      opacity: 0.7;
+    }
+
+    #control fieldset {
+      border: 0;
+      padding: 0;
+      margin: 0 0.5rem;
+    }
+
+    #control fieldset label {
+      display: block;
+      font-weight: bold;
+    }
+
+    #control fieldset select {
+      min-width: 100%;
+    }
+
+    #control fieldset input#size {
+      width: 40px;
+    }
+
+    #avatars {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      background-color: #efefef;
+      flex: 1;
+    }
+
+    #avatars > div {
+      margin: 1rem;
+    }
+
+    #avatars img {
+      max-height: 400px;
+      max-width: 400px;
+    }
+
+    #avatars div {
+      text-align: center;
+    }
+
+    #avatars div.id {
+      font-family: monospace;
+    }
+
+    #avatars div.sex {
+      text-transform: capitalize;
+    }
+
+    #avatars div.index {
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <div id="control">
+    <fieldset>
+      <label>Body</label>
+      <select id="bodyIndex">
+        <option value="-1">Random</option>
+        <option value="0">Female 1</option>
+        <option value="1">Female 2</option>
+        <option value="2">Female 3</option>
+        <option value="3">Man 1</option>
+        <option value="4">Man 2</option>
+        <option value="5">Man 3</option>
+      </select>
+    </fieldset>
+
+    <fieldset>
+      <label>Skin</label>
+      <select id="skinIndex">
+        <option value="-1">Random</option>
+        <option value="0">Skin 1</option>
+        <option value="1">Skin 2</option>
+        <option value="2">Skin 3</option>
+        <option value="3">Skin 4</option>
+        <option value="4">Skin 5</option>
+        <option value="5">Skin 6</option>
+        <option value="6">Skin 7</option>
+        <option value="7">Skin 8</option>
+        <option value="8">Skin 9</option>
+        <option value="9">Skin 10</option>
+        <option value="10">Skin 11</option>
+        <option value="11">Skin 12</option>
+      </select>
+    </fieldset>
+
+    <fieldset>
+      <label>Number</label>
+      <select id="number">
+        <option>1</option>
+        <option>2</option>
+        <option>3</option>
+        <option>4</option>
+        <option>5</option>
+        <option>6</option>
+        <option>7</option>
+        <option>8</option>
+        <option>9</option>
+        <option>10</option>
+      </select>
+    </fieldset>
+
+    <fieldset>
+      <label>Size</label>
+      <input value="400" type="number" id="size">
+    </fieldset>
+
+    <fieldset>
+      <label>Remove accessories</label>
+      <input type="checkbox" id="removeAccessories">
+    </fieldset>
+
+    <fieldset>
+      <label>Only head</label>
+      <input type="checkbox" id="onlyHead">
+    </fieldset>
+
+    <button id="generateAvatars" onclick="generateAvatars()">Generate avatars</button>
+  </div>
+
+  <div id="avatars"></div>
+</div>
+
+<script type="text/javascript">
+    const bodyIndexElement = document.getElementById('bodyIndex')
+    const skinIndexElement = document.getElementById('skinIndex')
+    const numberOptionElement = document.getElementById('number')
+    const sizeElement = document.getElementById('size')
+    const removeAccessoriesElement = document.getElementById('removeAccessories')
+    const onlyHeadElement = document.getElementById('onlyHead')
+    const generateAvatarsElement = document.getElementById('generateAvatars')
+
+    function generateAvatars () {
+        const urlParams = []
+        urlParams.push(`bodyIndex=${Number(bodyIndexElement.value)}`)
+        urlParams.push(`skinIndex=${Number(skinIndexElement.value)}`)
+        urlParams.push(`number=${Number(numberOptionElement.value)}`)
+        urlParams.push(`size=${Number(sizeElement.value)}`)
+        urlParams.push(`removeAccessories=${removeAccessoriesElement.checked}`)
+        urlParams.push(`onlyHead=${onlyHeadElement.checked}`)
+
+        const url = `/generateAvatar?${urlParams.join('&')}`
+
+        console.log('generateAvatars', url)
+
+        generateAvatarsElement.disabled = true
+
+        fetch(url)
+            .then(response => {
+                if (response.ok) {
+                    return response.json()
+                }
+                else {
+                    throw {status: response.status, statusText: response.statusText}
+                }
+            })
+            .then(avatars => {
+                generateAvatarsElement.disabled = false
+                console.log('avatars', avatars)
+                createAvatarImages(avatars)
+            })
+            .catch(err => {
+                generateAvatarsElement.disabled = false
+                console.error(err)
+            })
+    }
+
+    /**
+     * @param {Array<AvatarGenerator.Avatar>} avatars
+     */
+    function createAvatarImages (avatars) {
+        const avatarsElement = document.getElementById('avatars')
+        avatarsElement.innerHTML = ''
+
+        avatars.forEach(avatar => {
+            const divElement = document.createElement('div')
+            divElement.innerHTML = `<img src="${avatar.image}"/><div class="sex">${avatar.sex}</div><div class="index">Body: ${avatar.bodyIndex} Skin: ${avatar.skinIndex}</div><div class="id">${avatar.id}</div>`
+            avatarsElement.appendChild(divElement)
+        })
+    }
+</script>
+
+</body>
+</html>
