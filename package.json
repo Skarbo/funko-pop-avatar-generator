@@ -1,6 +1,6 @@
 {
   "name": "funko-pop-avatar-generator",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Generate Funko Pop avatars",
   "main": "index.js",
   "scripts": {
