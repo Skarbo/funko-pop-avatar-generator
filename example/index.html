@@ -72,6 +72,12 @@
     #avatars img {
       max-height: 400px;
       max-width: 400px;
+      border: 1px solid lightgrey;
+      border-radius: 5px;
+    }
+
+    #avatars img.circle {
+      border-radius: 50%;
     }
 
     #avatars div {
@@ -153,6 +159,17 @@
       <input type="checkbox" id="removeAccessories">
     </fieldset>
 
+
+    <fieldset>
+      <label>Focus head</label>
+      <input type="checkbox" id="focusHead">
+    </fieldset>
+
+    <fieldset>
+      <label>Circle</label>
+      <input type="checkbox" id="circle">
+    </fieldset>
+
     <fieldset>
       <label>Only head</label>
       <input type="checkbox" id="onlyHead">
@@ -165,62 +182,72 @@
 </div>
 
 <script type="text/javascript">
-    const bodyIndexElement = document.getElementById('bodyIndex')
-    const skinIndexElement = document.getElementById('skinIndex')
-    const numberOptionElement = document.getElementById('number')
-    const sizeElement = document.getElementById('size')
-    const removeAccessoriesElement = document.getElementById('removeAccessories')
-    const onlyHeadElement = document.getElementById('onlyHead')
-    const generateAvatarsElement = document.getElementById('generateAvatars')
+  const bodyIndexElement = document.getElementById('bodyIndex')
+  const skinIndexElement = document.getElementById('skinIndex')
+  const numberOptionElement = document.getElementById('number')
+  const sizeElement = document.getElementById('size')
+  const focusHeadElement = document.getElementById('focusHead')
+  const circleElement = document.getElementById('circle')
+  const removeAccessoriesElement = document.getElementById('removeAccessories')
+  const onlyHeadElement = document.getElementById('onlyHead')
+  const generateAvatarsElement = document.getElementById('generateAvatars')
 
-    function generateAvatars () {
-        const urlParams = []
-        urlParams.push(`bodyIndex=${Number(bodyIndexElement.value)}`)
-        urlParams.push(`skinIndex=${Number(skinIndexElement.value)}`)
-        urlParams.push(`number=${Number(numberOptionElement.value)}`)
-        urlParams.push(`size=${Number(sizeElement.value)}`)
-        urlParams.push(`removeAccessories=${removeAccessoriesElement.checked}`)
-        urlParams.push(`onlyHead=${onlyHeadElement.checked}`)
+  function generateAvatars () {
+    const urlParams = []
+    urlParams.push(`bodyIndex=${Number(bodyIndexElement.value)}`)
+    urlParams.push(`skinIndex=${Number(skinIndexElement.value)}`)
+    urlParams.push(`number=${Number(numberOptionElement.value)}`)
+    urlParams.push(`size=${Number(sizeElement.value)}`)
+    urlParams.push(`focusHead=${focusHeadElement.checked}`)
+    urlParams.push(`circle=${circleElement.checked}`)
+    urlParams.push(`removeAccessories=${removeAccessoriesElement.checked}`)
+    urlParams.push(`onlyHead=${onlyHeadElement.checked}`)
 
-        const url = `/generateAvatar?${urlParams.join('&')}`
+    const url = `/generateAvatar?${urlParams.join('&')}`
 
-        console.log('generateAvatars', url)
+    console.log('generateAvatars', url)
 
-        generateAvatarsElement.disabled = true
+    generateAvatarsElement.disabled = true
 
-        fetch(url)
-            .then(response => {
-                if (response.ok) {
-                    return response.json()
-                }
-                else {
-                    throw {status: response.status, statusText: response.statusText}
-                }
-            })
-            .then(avatars => {
-                generateAvatarsElement.disabled = false
-                console.log('avatars', avatars)
-                createAvatarImages(avatars)
-            })
-            .catch(err => {
-                generateAvatarsElement.disabled = false
-                console.error(err)
-            })
-    }
+    fetch(url)
+      .then(response => {
+        if (response.ok) {
+          return response.json()
+        }
+        else {
+          throw {status: response.status, statusText: response.statusText}
+        }
+      })
+      .then(avatars => {
+        generateAvatarsElement.disabled = false
+        console.log('avatars', avatars)
+        createAvatarImages(avatars)
+      })
+      .catch(err => {
+        generateAvatarsElement.disabled = false
+        console.error(err)
+      })
+  }
 
-    /**
-     * @param {Array<AvatarGenerator.Avatar>} avatars
-     */
-    function createAvatarImages (avatars) {
-        const avatarsElement = document.getElementById('avatars')
-        avatarsElement.innerHTML = ''
+  /**
+   * @param {Array<AvatarGenerator.Avatar>} avatars
+   */
+  function createAvatarImages (avatars) {
+    const avatarsElement = document.getElementById('avatars')
+    avatarsElement.innerHTML = ''
 
-        avatars.forEach(avatar => {
-            const divElement = document.createElement('div')
-            divElement.innerHTML = `<img src="${avatar.image}"/><div class="sex">${avatar.sex}</div><div class="index">Body: ${avatar.bodyIndex} Skin: ${avatar.skinIndex}</div><div class="id">${avatar.id}</div>`
-            avatarsElement.appendChild(divElement)
-        })
-    }
+    avatars.forEach(avatar => {
+      const divElement = document.createElement('div')
+      let clas = ''
+
+      if (avatar.options.circle) {
+        clas += 'circle'
+      }
+
+      divElement.innerHTML = `<img src="${avatar.image}" class="${clas}"/><div class="sex">${avatar.sex}</div><div class="index">Body: ${avatar.bodyIndex} Skin: ${avatar.skinIndex}</div><div class="id">${avatar.id}</div>`
+      avatarsElement.appendChild(divElement)
+    })
+  }
 </script>
 
 </body>

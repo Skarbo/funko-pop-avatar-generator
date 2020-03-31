@@ -1,12 +1,22 @@
 const path = require('path')
 const puppeteer = require('puppeteer')
 const md5 = require('md5')
+const debug = require('debug')('funko-pop-avatar-generator:avatar-generator')
 
-const Utils = require('./utils')
+const {
+  getSelectedElementIndex,
+  hideDOMElements,
+  roundNumber,
+  screenshotDOMElement,
+  setDOMElementsStyle,
+} = require('./utils')
 
 const URL = 'https://www.funko.com/pop-yourself/designer'
 
 const DEFAULT_SIZE = 400
+const FOCUS_SIZE_SCALE = 0.5
+const FOCUS_LEFT_SCALE = 0.25
+const FOCUS_TOP_SCALE = 0.11
 const MAX_BODY_INDEX = 7
 const MAX_SKIN_INDEX = 11
 const BODY_MAN_INDEX = 3
@@ -18,6 +28,7 @@ const SELECTOR_AVATAR_BODIES = '.tabContent .paginateParts.body .partTile'
 const SELECTOR_AVATAR_BODY_SKINS = '.tabContent .paginateParts.body .partTile.selected .partBack div'
 const SELECTOR_AVATAR_SELECT_BODY_AND_SKIN = '.tabContent .paginateParts.body .partTile:nth-child(%) .partBack div:nth-child(%)'
 const SELECTOR_AVATAR_IMAGES = '.avatar img'
+const SELECTOR_IFRAME = 'iframe'
 
 const REQUEST_AVATAR_IMAGE = 'pyimg'
 const REQUESTS_ACCEPTED = [
@@ -43,6 +54,9 @@ const REQUESTS_ACCEPTED = [
  * @property {Boolean} [removeAccessories=false]
  * @property {Boolean} [onlyHead=false]
  * @property {Number} [size]
+ * @property {Number} [sizeScaled]
+ * @property {Boolean} [focusHead]
+ * @property {Boolean} [circle]
  * @property {Number} [bodyIndex=undefined]
  * @property {Number} [skinIndex=undefined]
  * @property {String} [folder]
@@ -67,6 +81,7 @@ const REQUESTS_ACCEPTED = [
  * @property {Number} bodyIndex
  * @property {Number} skinIndex
  * @property {Object} features
+ * @property {{size: Number, focusHead: Boolean, circle: Boolean, removeAccessories: Boolean, onlyHead: Boolean}} options
  * @memberOf AvatarGenerator
  */
 
@@ -78,8 +93,8 @@ async function getSelectedBodyAndSkinIndex ({avatarGenerator}) {
   const page = avatarGenerator._browserInstance.page
 
   return {
-    bodyIndex: await Utils.getSelectedElementIndex({page, selector: SELECTOR_AVATAR_BODIES}),
-    skinIndex: await Utils.getSelectedElementIndex({page, selector: SELECTOR_AVATAR_BODY_SKINS}),
+    bodyIndex: await getSelectedElementIndex({page, selector: SELECTOR_AVATAR_BODIES}),
+    skinIndex: await getSelectedElementIndex({page, selector: SELECTOR_AVATAR_BODY_SKINS}),
   }
 }
 
@@ -88,7 +103,7 @@ async function getSelectedBodyAndSkinIndex ({avatarGenerator}) {
  * @param {AvatarGenerator.Options} [options]
  * @return {Promise<Object>}
  */
-async function getAvatarFeatures ({avatarGenerator, options = {}}) {
+async function getAvatarFeatures ({avatarGenerator}) {
   const page = avatarGenerator._browserInstance.page
 
   const avatarImages = await page.$$eval(SELECTOR_AVATAR_IMAGES, images => images.map(img => img.outerHTML))
@@ -139,6 +154,13 @@ async function createAvatarObject ({avatarGenerator, options = {}}) {
     bodyIndex,
     skinIndex,
     features: avatarFeatures,
+    options: {
+      size: options.size,
+      focusHead: options.focusHead,
+      circle: options.circle,
+      removeAccessories: options.removeAccessories,
+      onlyHead: options.onlyHead,
+    },
   }
 }
 
@@ -195,20 +217,20 @@ async function createAvatar ({avatarGenerator, previousAvatar, options, index = 
         await page.waitForResponse(img, {timeout: 3000})
       }
       catch (e) {
-        console.error('failed image', img)
+        debug('failed image', img)
       }
     }
   }))
 
   // remove accessories
-  await Utils.hideDOMElements({
+  await hideDOMElements({
     page,
     selector: ['cat', 'dog', 'jackolantern', 'pumpkin-pail'].map(accessory => `.avatar img[alt^="${accessory}"]`).join(', ')
   })
 
   // only head
   if (options.onlyHead) {
-    await Utils.hideDOMElements({
+    await hideDOMElements({
       page,
       selector: ['_body_skin', '/outfit/', '/bottom/', '/top/'].map(src => `.avatar img[src*="${src}"]`).join(', ')
     })
@@ -218,11 +240,23 @@ async function createAvatar ({avatarGenerator, previousAvatar, options, index = 
   const avatar = await createAvatarObject({avatarGenerator, options})
 
   // take screenshot
-  avatar.image = await Utils.screenshotDOMElement({
+  let clip = undefined
+
+  if (options.focusHead) {
+    clip = {
+      left: roundNumber((options.sizeScaled * FOCUS_LEFT_SCALE)), // 50
+      top: roundNumber((options.sizeScaled * FOCUS_TOP_SCALE)), // 22
+      size: options.size,
+    }
+  }
+
+  avatar.image = await screenshotDOMElement({
     page,
     selector: SELECTOR_AVATAR,
     path: options.folder ? path.resolve(options.folder, `avatar_${index}.png`) : undefined,
     encoding: !options.folder ? 'base64' : undefined,
+    clip,
+    containerSelector: 'html',
   })
 
   return avatar
@@ -262,8 +296,8 @@ async function createAvatars ({avatarGenerator, options}) {
 module.exports.startBrowser = async ({options = {}}) => {
   const browser = await puppeteer.launch({
     defaultViewport: {
-      width: 2000,
-      height: 700,
+      width: 500,
+      height: 500,
     }
   })
   const page = await browser.newPage()
@@ -304,13 +338,11 @@ module.exports.startBrowser = async ({options = {}}) => {
   })
 
   page.on('pageerror', function (err) {
-    const theTempValue = err.toString()
-    console.log('Page error: ' + theTempValue)
+    debug('Page error', err.toString())
   })
 
   page.on('error', function (err) {
-    const theTempValue = err.toString()
-    console.log('Error: ' + theTempValue)
+    debug('Error', err.toString())
   })
 
   await page.goto(URL)
@@ -321,13 +353,30 @@ module.exports.startBrowser = async ({options = {}}) => {
 
   await page.waitForSelector(SELECTOR_AVATAR)
 
-  await Utils.setDOMElementsStyle({
+  await page.evaluate((selector) => {
+    document.querySelector(selector).scrollIntoView({block: 'end'})
+  }, SELECTOR_AVATAR)
+
+  const style = {
+    width: `${options.sizeScaled}px`,
+    height: `${options.sizeScaled}px`
+  }
+
+  if (options.circle && options.focusHead) {
+    style['clip-path'] = `circle(${roundNumber(options.size / 2)}px at ${roundNumber((options.sizeScaled * FOCUS_LEFT_SCALE) + (options.size / 2))}px ${roundNumber((options.sizeScaled * FOCUS_TOP_SCALE) + (options.size / 2))}px)`
+  }
+  else if (options.circle) {
+    style['clip-path'] = `circle(${roundNumber(options.size / 2)}px at ${roundNumber(options.size / 2)}px ${roundNumber(options.size / 2)}px)`
+  }
+
+  await setDOMElementsStyle({
     page,
     selector: SELECTOR_AVATAR,
-    style: {width: `${options.size}px`, height: `${options.size}px`},
+    style,
   })
 
-  await Utils.hideDOMElements({page, selector: SELECTOR_AVATAR_BUTTON_UNDO})
+  await hideDOMElements({page, selector: SELECTOR_AVATAR_BUTTON_UNDO})
+  await hideDOMElements({page, selector: SELECTOR_IFRAME})
 
   return browserInstance
 }
@@ -361,6 +410,11 @@ module.exports.generateAvatar = async (options = {}) => {
   options.bodyIndex = options.bodyIndex >= 0 && options.bodyIndex <= MAX_BODY_INDEX ? options.bodyIndex : undefined
   options.skinIndex = options.skinIndex >= 0 && options.skinIndex <= MAX_SKIN_INDEX ? options.skinIndex : undefined
   options.size = options.size || DEFAULT_SIZE
+  options.sizeScaled = options.size
+
+  if (options.focusHead) {
+    options.sizeScaled = options.size / FOCUS_SIZE_SCALE
+  }
 
   /** @type {AvatarGenerator} */
   const avatarGenerator = {
@@ -375,9 +429,8 @@ module.exports.generateAvatar = async (options = {}) => {
     avatarGenerator._originalAvatar = await createAvatarObject({avatarGenerator})
     avatarGenerator.avatars = await createAvatars({avatarGenerator, options})
   }
-  catch (e) {
-    // ignored
-    console.error(e)
+  catch (err) {
+    debug('generate error', err)
   }
   finally {
     await module.exports.stopBrowser(avatarGenerator._browserInstance)

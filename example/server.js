@@ -10,6 +10,8 @@ app.get('/generateAvatar', async (req, res, next) => {
   try {
     res.send(await generateAvatar({
       number: Number(req.query['number']) || 1,
+      focusHead: req.query['focusHead'] === 'true',
+      circle: req.query['circle'] === 'true',
       removeAccessories: req.query['removeAccessories'] === 'true',
       onlyHead: req.query['onlyHead'] === 'true',
       size: Number(req.query['size']),

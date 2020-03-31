@@ -4,13 +4,14 @@
   "description": "Generate Funko Pop avatars",
   "main": "index.js",
   "scripts": {
-    "example": "nodemon --watch index.js --watch example/server.js --watch src/ example/server.js"
+    "example": "DEBUG=funko-pop-avatar-generator* nodemon --watch index.js --watch example/server.js --watch src/ example/server.js"
   },
   "author": "Kris Skarbo",
   "license": "ISC",
   "dependencies": {
+    "debug": "^4.1.1",
     "md5": "^2.2.1",
-    "puppeteer": "^1.17.0"
+    "puppeteer": "^2.1.1"
   },
   "devDependencies": {
     "chai": "^4.2.0",
@@ -22,7 +23,7 @@
     "nodemon": "^1.19.1"
   },
   "repository": {
-    "type" : "git",
-    "url" : "https://github.com/Skarbo/funko-pop-avatar-generator.git"
+    "type": "git",
+    "url": "https://github.com/Skarbo/funko-pop-avatar-generator.git"
   }
 }

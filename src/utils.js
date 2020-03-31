@@ -46,26 +46,35 @@ module.exports.removeDOMElement = async ({page, selector}) => {
 /**
  * @param {Page} page
  * @param {String} selector
+ * @param {Number} [containerSelector]
  * @param {String} [path]
  * @param {String} [encoding]
  * @param {Number} [padding]
+ * @param {{left: Number, top: Number, size: Number}} [clip]
  * @return {Promise<String|Buffer>}
  */
-module.exports.screenshotDOMElement = async ({page, selector, path, encoding, padding = 0}) => {
-  const rect = await page.evaluate(selector => {
+module.exports.screenshotDOMElement = async ({page, selector, path, encoding, padding = 0, clip = {left: 0, top: 0, size: 0}, containerSelector}) => {
+  const rect = await page.evaluate((selector, containerSelector) => {
+    let scrollTop = 0
+
+    if (containerSelector) {
+      scrollTop = document.querySelector(containerSelector).scrollTop
+    }
+
     const element = document.querySelector(selector)
     const {x, y, width, height} = element.getBoundingClientRect()
-    return {left: x, top: y, width, height, id: element.id}
-  }, selector)
+
+    return {left: x, top: y + scrollTop, width, height, id: element.id}
+  }, selector, containerSelector)
 
   const image = await page.screenshot({
     path,
     encoding,
     clip: {
-      x: rect.left - padding,
-      y: rect.top - padding,
-      width: rect.width + padding * 2,
-      height: rect.height + padding * 2
+      x: (rect.left + clip.left) - padding,
+      y: (rect.top + clip.top) - padding,
+      width: (clip.size || rect.width) + (padding * 2),
+      height: (clip.size || rect.height) + (padding * 2)
     },
     omitBackground: true,
   })
@@ -98,4 +107,8 @@ module.exports.getSelectedElementIndex = async ({page, selector}) => {
 
     return -1
   }, selector)
+}
+
+module.exports.roundNumber = (num) => {
+  return Math.round(num * 10) / 10
 }
